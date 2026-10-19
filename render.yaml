@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ozal-telegram-agent
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn render_bot:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+    healthCheckPath: /
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OWNER_ID
+        value: "1290607594"
+      - key: WEBHOOK_SECRET
+        generateValue: true
+      - key: OPENROUTER_MODEL
+        value: openrouter/free
