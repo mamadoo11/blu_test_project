@@ -1,0 +1,91 @@
+name: Build APK and EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('gradlew') != '' }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: '**/build/outputs/apk/**/*.apk'
+          if-no-files-found: error
+          retention-days: 7
+
+  windows-exe:
+    name: Build Windows EXE (Python)
+    runs-on: windows-latest
+    if: ${{ hashFiles('main.py') != '' }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if (Test-Path requirements.txt) {
+            python -m pip install -r requirements.txt
+          }
+          python -m pip install pyinstaller
+
+      - name: Build EXE
+        run: pyinstaller --clean --noconfirm --onefile --name app main.py
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/app.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  no-project-detected:
+    name: Explain expected project files
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('gradlew') == '' && hashFiles('main.py') == '' }}
+    steps:
+      - name: Explain
+        run: |
+          echo "No supported project entrypoint was found."
+          echo "For Android, add a Gradle project with a gradlew file at repository root."
+          echo "For Python EXE, add main.py at repository root and optionally requirements.txt."
+          echo "Web projects need a separate packaging setup (for example Capacitor for APK or Electron for EXE)."
